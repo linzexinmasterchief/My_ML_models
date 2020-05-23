@@ -20,7 +20,7 @@ class Node:
 
 # D = [[x1, x2, x3, ..., xn], [y1, y2, y3, ..., yn]] (D is the dataset imported)
 # x is data value, y is data label
-D = [[1, 2, 3, 4, 5], [3, 3, 4, 4, 5]]
+D = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [3, 3, 4, 4, 5, 3, 3, 5, 4, 4]]
 
 def get_unique_label_from_dataset(dataset):
     label = dataset[1]
@@ -136,10 +136,16 @@ def min_impurity_split(t, min_data_amount):
             if (len(data[dimension]) < min_data_amount or len(dataset[dimension]) < min_data_amount -1):
                 continue
 
-
             current_impurity_change = total_impurity_change(t.dataset, data, dataset)
-            
             print("    [impurity]", current_impurity_change)
+
+            if (-current_impurity_change > 0.4):
+                best_split = copy.deepcopy([data, dataset])
+                split_method = dimension
+                # split at the data point position (should have a better approach)
+                split_pos = dataset[dimension][i]
+                break
+
             if (-current_impurity_change > max_impurity_change):
                 
                 max_impurity_change = -current_impurity_change
@@ -147,8 +153,6 @@ def min_impurity_split(t, min_data_amount):
                 split_method = dimension
                 # split at the data point position (should have a better approach)
                 split_pos = dataset[dimension][i]
-
-
 
     left = Node(best_split[0])
     right = Node(best_split[1])
@@ -226,15 +230,18 @@ def train(t, node_count):
         train(t.right, node_count)
     return t
 
-
 def print_tree(t):
     print(t.dataset, end="")
     if (t.right):
         print(" ------> ", end="")
+        print("r", end="")
         print_tree(t.right)
     if (t.left):
         print("\n  |")
+        print("l", end="")
         print_tree(t.left)
+    
+    print("u")
     
 
 root = Node(D)
