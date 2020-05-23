@@ -1,4 +1,5 @@
 import copy
+import csv
 
 class Node:
 
@@ -9,7 +10,7 @@ class Node:
         # D(t) is the set of data points in the node t
         self.dataset = dataset
         # this node split on which dimension
-        self.split_method = 0
+        self.split_dimension = 0
         self.split_pos = 0
         # the predict label of node
         self.label = None
@@ -20,10 +21,22 @@ class Node:
 
 # D = [[x1, x2, x3, ..., xn], [y1, y2, y3, ..., yn]] (D is the dataset imported)
 # x is data value, y is data label
-D = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [3, 3, 4, 4, 5, 3, 3, 5, 4, 4]]
+# D = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [3, 3, 4, 4, 5, 3, 3, 5, 4, 4], [3, 3, 4, 4, 5, 3, 3, 5, 4, 4]]
+D = []
+with open('train.csv', newline='') as csvfile:
+    csv_reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+    for row in csv_reader:
+        D.append(row)
+D = D[1:]
+test_data_point = D[1]
+# with open('test.csv', newline='') as csvfile:
+#     csv_reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+#     for row in csv_reader:
+#         test_data_point.append(row)
+label_index = 1
 
-def get_unique_label_from_dataset(dataset):
-    label = dataset[1]
+def get_unique_label_from_dataset(dataset, label_index):
+    label = dataset[label_index]
     unique = []
     for l in label:
         if (l in unique):
@@ -33,10 +46,10 @@ def get_unique_label_from_dataset(dataset):
     return unique
 
 # the subset in dataset D which satisfies label j
-def D_j(D, j):
+def D_j(D, j, label_index):
     # D[1] is label set Y, range(len(D[1])) is [0, 1, 2, 3, 4, ...], in another words, the index of D[1]
     # therefore the returned i is an array of index that matchs j
-    return [x_i for x_i, x_j in zip(range(len(D[1])), D[1]) if x_j == j]
+    return [x_i for x_i, x_j in zip(range(len(D[label_index])), D[label_index]) if x_j == j]
 
 # N(t) is the number of data points in the node t
 def N(t):
@@ -44,26 +57,26 @@ def N(t):
 
 # N(t, j) is the number of data points in the node t with class label j
 # D(t) is t.dataset
-def N(t, j):
-    return len(D_j(t.dataset, j))
+def N(t, j, label_index):
+    return len(D_j(t.dataset, j, label_index))
 
 # prior probability distribution of U that represents the probability of picking the class label j
 # here use pi(j) = Nj / N
 pi = {}
-for label in get_unique_label_from_dataset(D):
-    pi.update({label : len(D_j(D, label)) / len(D[1])})
+for label in get_unique_label_from_dataset(D, label_index):
+    pi.update({label : len(D_j(D, label, label_index)) / len(D[label_index])})
     # [len(D_j(D, j)) / len(D[1]) for j in D[1]]
 # probability of picking up a data point that is in t with the class label j p(j, t)
-def p_j_t(j, t):
-    return pi.get(j) * N(t, j) / len(D_j(t.dataset, j))
+def p_j_t(j, t, label_index):
+    return pi.get(j) * N(t, j, label_index) / len(D_j(t.dataset, j, label_index))
 
 # probability of picking a data point in the node t
-def p_t(t):
-    return sum([p_j_t(j, t) for j in t.dataset[1]])
+def p_t(t, label_index):
+    return sum([p_j_t(j, t, label_index) for j in t.dataset[label_index]])
 
 # conditional probability of picking a data point with the class label j when the node t is given p(j | t)
-def p_j_if_t(j, t):
-    return p_j_t(j, t) / p_t(t)
+def p_j_if_t(j, t, label_index):
+    return p_j_t(j, t, label_index) / p_t(t, label_index)
 
 # impurity function
 def fi(p):
@@ -71,12 +84,12 @@ def fi(p):
     return 1/2 * sum([i / (1.00001 - i) for i in p])
 
 # impurity measure of a node i(t)
-def fi_t(t):
-    return fi([p_j_if_t(j, t) for j in t.dataset[1]])
+def fi_t(t, label_index):
+    return fi([p_j_if_t(j, t, label_index) for j in t.dataset[label_index]])
 
 # impurity of a node t I(t)
 def fI_t(t):
-    return fi_t(t) * p_t(t)
+    return fi_t(t, label_index) * p_t(t, label_index)
 
 # get an array of nodes that are under tree root t
 def get_nodes_under_root(t):
@@ -113,7 +126,7 @@ def min_impurity_split(t, min_data_amount):
     max_impurity_change = 0
     # init best_split set to be all data on one piece
     best_split = [[[], []], dataset]
-    split_method = 0
+    split_dimension = 0
     split_pos = 0
 
     for dimension in range(len(t.dataset)):
@@ -141,8 +154,9 @@ def min_impurity_split(t, min_data_amount):
 
             if (-current_impurity_change > 0.4):
                 best_split = copy.deepcopy([data, dataset])
-                split_method = dimension
+                split_dimension = dimension
                 # split at the data point position (should have a better approach)
+            # !!! since using "=" here, data equal to split_pos should go to left leaf !!!
                 split_pos = dataset[dimension][i]
                 break
 
@@ -150,7 +164,7 @@ def min_impurity_split(t, min_data_amount):
                 
                 max_impurity_change = -current_impurity_change
                 best_split = copy.deepcopy([data, dataset])
-                split_method = dimension
+                split_dimension = dimension
                 # split at the data point position (should have a better approach)
                 split_pos = dataset[dimension][i]
 
@@ -158,30 +172,30 @@ def min_impurity_split(t, min_data_amount):
     right = Node(best_split[1])
     t.left = left
     t.right = right
-    t.split_method = split_method
+    t.split_dimension = split_dimension
     t.split_pos = split_pos
     return t
 
 # node t, assume label i
 def misclassification_cost(t):
     max_cost = 0
-    unique_label = get_unique_label_from_dataset(t.dataset)
+    unique_label = get_unique_label_from_dataset(t.dataset, label_index)
     
     for i in unique_label:
-        cost = p_j_if_t(i, t)
+        cost = p_j_if_t(i, t, label_index)
         if cost > max_cost:
             max_cost = cost
     return max_cost
 
-def class_label_of_node(t):
+def class_label_of_node(t, label_index):
     dataset = t.dataset
-    unique_label = get_unique_label_from_dataset(dataset)
+    unique_label = get_unique_label_from_dataset(dataset, label_index)
     # majority vote is a label in the label set of node t with max amount
     majority_vote = unique_label[0]
     max_label_count = 0
     for i in unique_label:
-        if (dataset[1].count(i) > max_label_count):
-            max_label_count = dataset[1].count(i)
+        if (dataset[label_index].count(i) > max_label_count):
+            max_label_count = dataset[label_index].count(i)
             majority_vote = i
     return majority_vote
 
@@ -207,7 +221,7 @@ def node_test():
     print(N(root, 3))
     print(pi)
     print(get_nodes_under_root(root))
-    print(class_label_of_node(root))
+    print(class_label_of_node(root, label_index))
 
 def data_test():
     u = get_unique_label_from_dataset(D)
@@ -224,11 +238,30 @@ def train(t, node_count):
     print("============= new node =============")
     print("node", node_count, ": ", t.dataset)
     t = min_impurity_split(t, 2)
+    t.label = class_label_of_node(t, label_index)
     if (t.left):
         train(t.left, node_count)
     if (t.right):
         train(t.right, node_count)
     return t
+
+def test(t, test_data_point):
+    split_dimension = t.split_dimension
+    split_pos = t.split_pos
+
+    # read line 158
+    print(type(test_data_point[split_dimension]))
+    if (test_data_point[split_dimension] <= split_pos):
+        if (t.left):
+            test(t.left, test_data_point)
+        else:
+            return t.label
+    else:
+        if (t.right):
+            test(t.right, test_data_point)
+        else:
+            return t.label
+
 
 def print_tree(t):
     print(t.dataset, end="")
@@ -248,3 +281,7 @@ root = Node(D)
 train(root, 0)
 print("=====================")
 print_tree(root)
+
+print(test_data_point)
+result = test(root, test_data_point)
+print(result)
