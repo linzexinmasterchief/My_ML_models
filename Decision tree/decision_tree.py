@@ -1,5 +1,6 @@
 import copy
 import csv
+import numpy as np
 
 class Node:
 
@@ -22,18 +23,26 @@ class Node:
 # D = [[x1, x2, x3, ..., xn], [y1, y2, y3, ..., yn]] (D is the dataset imported)
 # x is data value, y is data label
 # D = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [3, 3, 4, 4, 5, 3, 3, 5, 4, 4], [3, 3, 4, 4, 5, 3, 3, 5, 4, 4]]
-D = []
+D_raw = []
+D = [[] for i in range(12)]
 with open('train.csv', newline='') as csvfile:
-    csv_reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
+    csv_reader = csv.reader(csvfile)
     for row in csv_reader:
-        D.append(row)
-D = D[1:]
-test_data_point = D[1]
+        index = 0
+        for i in row:
+            D[index].append(i.strip(' '))
+            index += 1
+
+for i in range(len(D)):
+    # remove header
+    D[i] = D[i][1:]
+test_data_point = [D[i][1] for i in range(len(D))]
+print(test_data_point)
 # with open('test.csv', newline='') as csvfile:
 #     csv_reader = csv.reader(csvfile, delimiter=' ', quotechar='|')
 #     for row in csv_reader:
 #         test_data_point.append(row)
-label_index = 1
+label_index = -1
 
 def get_unique_label_from_dataset(dataset, label_index):
     label = dataset[label_index]
@@ -68,14 +77,18 @@ for label in get_unique_label_from_dataset(D, label_index):
     # [len(D_j(D, j)) / len(D[1]) for j in D[1]]
 # probability of picking up a data point that is in t with the class label j p(j, t)
 def p_j_t(j, t, label_index):
+    print("p_j_t")
     return pi.get(j) * N(t, j, label_index) / len(D_j(t.dataset, j, label_index))
 
 # probability of picking a data point in the node t
 def p_t(t, label_index):
-    return sum([p_j_t(j, t, label_index) for j in t.dataset[label_index]])
+    print("p_t")
+    # return sum([p_j_t(j, t, label_index) for j in t.dataset[label_index]])
+    return sum([p_j_t(j, t, label_index) for j in pi])
 
 # conditional probability of picking a data point with the class label j when the node t is given p(j | t)
 def p_j_if_t(j, t, label_index):
+    print("p_j_if_t")
     return p_j_t(j, t, label_index) / p_t(t, label_index)
 
 # impurity function
@@ -85,10 +98,12 @@ def fi(p):
 
 # impurity measure of a node i(t)
 def fi_t(t, label_index):
+    print("fi_t")
     return fi([p_j_if_t(j, t, label_index) for j in t.dataset[label_index]])
 
 # impurity of a node t I(t)
-def fI_t(t):
+def fI_t(t, label_index):
+    print("fI_t")
     return fi_t(t, label_index) * p_t(t, label_index)
 
 # get an array of nodes that are under tree root t
@@ -101,19 +116,19 @@ def get_nodes_under_root(t):
 
 # impurity of a tree T I(T), T is the tree root
 def fI_T(T):
-    return sum([fI_t(t) for t in get_nodes_under_root(T)])
+    return sum([fI_t(t, label_index) for t in get_nodes_under_root(T)])
 
 
 def total_impurity_change(original_set, left_set, right_set):
     # impurity of original node
     current_node = Node(original_set)
-    Impurity_current_node = fI_t(current_node)
+    Impurity_current_node = fI_t(current_node, label_index)
     # impurity of left node
     left = Node(left_set)
-    Impurity_left_node = fI_t(left)
+    Impurity_left_node = fI_t(left, label_index)
     # impurity of right node
     right = Node(right_set)
-    Impurity_right_node = fI_t(right)
+    Impurity_right_node = fI_t(right, label_index)
     # delta I(s, t), the total impurity change due to split s
     return (Impurity_current_node - Impurity_left_node - Impurity_right_node)
     
@@ -133,22 +148,25 @@ def min_impurity_split(t, min_data_amount):
         # data is the split piece (left piece)
         data = [[] for i in range(len(t.dataset))]
         dataset = copy.deepcopy(t.dataset)
-        print("[dimension", dimension, "]", t.dataset, "|", data, "|", dataset)
+        # print("[dimension", dimension, "]", t.dataset, "|", data, "|", dataset)
+
+        print(data)
+        # iterate through each dimension to find the best position to split
         for data_index in range(len(t.dataset[dimension])):
-            # get index of min data x
+            # get index of min data x in dataset
             i = dataset[dimension].index(min(dataset[dimension]))
             for dimension_2 in range(len(dataset)):
                 # extract data point and append to left piece
                 data[dimension_2].append(dataset[dimension_2][i])
                 # remove data point from the rest
                 dataset[dimension_2].pop(i)
-                print("        [dataset cut]", "data: ", data, "dataset: ", dataset)
-            print("    [impurity parameter]", t.dataset, "|", data, "|", dataset)
+            # print("        [dataset cut]", "data: ", data, "dataset: ", dataset)
+            # print("    [impurity parameter]", t.dataset, "|", data, "|", dataset)
 
+            print("    [dimension]", len(data[dimension]))
             # there must be at lest [min_data_amount] of data point in data / dataset
-            if (len(data[dimension]) < min_data_amount or len(dataset[dimension]) < min_data_amount -1):
+            if (len(data[dimension]) < min_data_amount or len(dataset[dimension]) < min_data_amount):
                 continue
-
             current_impurity_change = total_impurity_change(t.dataset, data, dataset)
             print("    [impurity]", current_impurity_change)
 
@@ -157,7 +175,7 @@ def min_impurity_split(t, min_data_amount):
                 split_dimension = dimension
                 # split at the data point position (should have a better approach)
             # !!! since using "=" here, data equal to split_pos should go to left leaf !!!
-                split_pos = dataset[dimension][i]
+                split_pos = t.dataset[dimension][data_index]
                 break
 
             if (-current_impurity_change > max_impurity_change):
@@ -230,15 +248,16 @@ def data_test():
 def train(t, node_count):
     node_count += 1
     # if terminal node (only contain one data point), stop spliting
-    if (len(t.dataset[0]) <= 2):
-        return t
-    if (misclassification_cost(t) < 0.1):
+    # if (len(t.dataset[0]) <= 2):
+    #     return t
+    if (misclassification_cost(t) < 0.001):
         return t
     # split
     print("============= new node =============")
-    print("node", node_count, ": ", t.dataset)
+    print("node", node_count)
     t = min_impurity_split(t, 2)
     t.label = class_label_of_node(t, label_index)
+    print(t.label)
     if (t.left):
         train(t.left, node_count)
     if (t.right):
@@ -250,8 +269,8 @@ def test(t, test_data_point):
     split_pos = t.split_pos
 
     # read line 158
-    print(type(test_data_point[split_dimension]))
-    if (test_data_point[split_dimension] <= split_pos):
+    # print(type(test_data_point[split_dimension]))
+    if (float(test_data_point[split_dimension]) <= split_pos):
         if (t.left):
             test(t.left, test_data_point)
         else:
@@ -279,8 +298,8 @@ def print_tree(t):
 
 root = Node(D)
 train(root, 0)
-print("=====================")
-print_tree(root)
+# print("=====================")
+# print_tree(root)
 
 print(test_data_point)
 result = test(root, test_data_point)
