@@ -77,18 +77,21 @@ for label in get_unique_label_from_dataset(D, label_index):
     # [len(D_j(D, j)) / len(D[1]) for j in D[1]]
 # probability of picking up a data point that is in t with the class label j p(j, t)
 def p_j_t(j, t, label_index):
-    print("p_j_t")
-    return pi.get(j) * N(t, j, label_index) / len(D_j(t.dataset, j, label_index))
+    # original:
+    # return pi.get(j) * N(t, j, label_index) / len(D_j(t.dataset, j, label_index))
+    # optimize:
+    label_count = t.dataset[label_index].count(j)
+    if (label_count == 0):
+        return 0
+    return pi.get(j) * N(t, j, label_index) / label_count
 
 # probability of picking a data point in the node t
 def p_t(t, label_index):
-    print("p_t")
     # return sum([p_j_t(j, t, label_index) for j in t.dataset[label_index]])
     return sum([p_j_t(j, t, label_index) for j in pi])
 
 # conditional probability of picking a data point with the class label j when the node t is given p(j | t)
 def p_j_if_t(j, t, label_index):
-    print("p_j_if_t")
     return p_j_t(j, t, label_index) / p_t(t, label_index)
 
 # impurity function
@@ -150,7 +153,7 @@ def min_impurity_split(t, min_data_amount):
         dataset = copy.deepcopy(t.dataset)
         # print("[dimension", dimension, "]", t.dataset, "|", data, "|", dataset)
 
-        print(data)
+
         # iterate through each dimension to find the best position to split
         for data_index in range(len(t.dataset[dimension])):
             # get index of min data x in dataset
@@ -163,7 +166,12 @@ def min_impurity_split(t, min_data_amount):
             # print("        [dataset cut]", "data: ", data, "dataset: ", dataset)
             # print("    [impurity parameter]", t.dataset, "|", data, "|", dataset)
 
-            print("    [dimension]", len(data[dimension]))
+            print("    [dimension]", dimension)
+            print("    [dimension size]", len(data[data_index]))
+            print("    [new pick index]", i)
+            print("    [data]", data)
+            print("    [data len]", len(data[dimension]))
+            print("    [dataset len]", len(dataset[dimension]))
             # there must be at lest [min_data_amount] of data point in data / dataset
             if (len(data[dimension]) < min_data_amount or len(dataset[dimension]) < min_data_amount):
                 continue
